@@ -18,8 +18,11 @@ const STORAGE_KEY = "github-widget-pos-v1";
 // Changing this to a lower value wastes battery.
 export const refreshFrequency = 4 * 60 * 60 * 1000;
 
-// Shell command: fetch from public API (no auth overhead)
-export const command = `curl -sf --max-time 10 "https://github-contributions-api.jogruber.de/v4/${GITHUB_USERNAME}?y=last"`;
+// Shell command: fetch contributions from public API + avatar from GitHub API
+export const command = `curl -sf --max-time 10 "https://github-contributions-api.jogruber.de/v4/${GITHUB_USERNAME}?y=last" && echo "==WIDGET_SEPARATOR==" && (curl -sf --max-time 10 "https://api.github.com/users/${GITHUB_USERNAME}" || true)`;
+
+// Shell command: fetch GitHub user profile for avatar
+export const command2 = `curl -sf --max-time 10 "https://api.github.com/users/${GITHUB_USERNAME}"`;
 
 // Color palette
 const COLORS = ["rgba(22,27,34,0.85)", "#0e4429", "#006d32", "#26a641", "#39d353"];
@@ -89,21 +92,30 @@ function loadSavedPos() {
 // ── Main Component ────────────────────────────────────────────
 const Widget = ({ output, error }) => {
   // Parse API output — only runs when `output` changes
-  const days = useMemo(() => {
-    if (!output) return [];
+  const { days, avatarUrl } = useMemo(() => {
+    if (!output) return { days: [], avatarUrl: null };
     try {
-      const json = JSON.parse(output);
-      if (json.error) return [];
-      return (json.contributions || []);
-    } catch (_) { return []; }
+      // Output contains two JSON responses separated by ==WIDGET_SEPARATOR==
+      const parts = output.split('==WIDGET_SEPARATOR==');
+      const contribData = JSON.parse(parts[0] || '{}');
+      const userData = JSON.parse(parts[1] || '{}');
+
+      if (contribData.error) return { days: [], avatarUrl: null };
+
+      return {
+        days: (contribData.contributions || []),
+        avatarUrl: userData.avatar_url || null
+      };
+    } catch (_) { return { days: [], avatarUrl: null }; }
   }, [output]);
 
   const parseError = useMemo(() => {
     if (!output && !error) return null;
     if (error) return error;
     try {
-      const json = JSON.parse(output || "{}");
-      return json.error || null;
+      const parts = output.split('==WIDGET_SEPARATOR==');
+      const contribData = JSON.parse(parts[0] || '{}');
+      return contribData.error || null;
     } catch (_) { return "Invalid response"; }
   }, [output, error]);
 
@@ -189,6 +201,7 @@ const Widget = ({ output, error }) => {
       >
         <div style={S.headerLeft}>
           <div style={S.dot} />
+          {avatarUrl && <img src={avatarUrl} alt="" style={S.avatar} />}
           <span style={S.username}>@{GITHUB_USERNAME}</span>
           <span style={S.dragHint}>⠿</span>
         </div>
@@ -288,6 +301,7 @@ const S = {
     width: 7, height: 7, borderRadius: "50%",
     background: "#39d353", boxShadow: "0 0 7px #39d35399", flexShrink: 0,
   },
+  avatar: { width: 20, height: 20, borderRadius: "50%", flexShrink: 0 },
   username: { fontSize: 12, fontWeight: 600, color: "#e6edf3", letterSpacing: "-0.01em" },
   dragHint: { fontSize: 11, color: "rgba(139,148,158,0.35)", letterSpacing: "-1px" },
   timestamp: { fontSize: 10, color: "rgba(139,148,158,0.65)" },
