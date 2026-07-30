@@ -7,7 +7,7 @@ import { React } from "uebersicht";
 const { useState, useEffect, useRef, useMemo, useCallback } = React;
 
 // ── CONFIG ────────────────────────────────────────────────────
-const GITHUB_USERNAME = "Daksh-create349";   // ← your GitHub username
+const GITHUB_USERNAME = "ENTER_YOUR_USERNAME";   // ← your GitHub username
 const DEFAULT_X = 20;          // starting X (pixels from left)
 const DEFAULT_Y = 20;          // starting Y (pixels from top)
 // ─────────────────────────────────────────────────────────────
